@@ -399,6 +399,49 @@ pub const Accessor = extern struct {
         return out[0..count];
     }
 
+    pub fn unpackBytes(accessor: Accessor, out: []u8) []u8 {
+        std.debug.assert(accessor.component_type == .r_8u);
+        std.debug.assert(accessor.type == .vec4);
+
+        const value_count = accessor.count * 4;
+        const count = @min(value_count, out.len);
+
+        var values: [4]u32 = undefined;
+        var written: usize = 0;
+
+        for (0..accessor.count) |i| {
+            if (written + 4 > count) break;
+            const ok = cgltf_accessor_read_uint(&accessor, i, &values, 4);
+            std.debug.assert(ok != 0);
+            for (0..4) |component| {
+                std.debug.assert(values[component] <= std.math.maxInt(u8));
+                out[written] = @intCast(values[component]);
+                written += 1;
+            }
+        }
+
+        return out[0..written];
+    }
+
+    pub fn unpackU16s(accessor: Accessor, out: []u16) []u16 {
+        std.debug.assert(accessor.component_type == .r_16u);
+        std.debug.assert(accessor.type == .scalar);
+
+        const count = @min(accessor.count, out.len);
+
+        var value: [1]u32 = undefined;
+
+        for (0..count) |i| {
+            const ok = cgltf_accessor_read_uint(&accessor, i, &value, 1);
+            std.debug.assert(ok != 0);
+
+            std.debug.assert(value[0] <= std.math.maxInt(u16));
+            out[i] = @intCast(value[0]);
+        }
+
+        return out[0..count];
+    }
+
     pub fn readFloat(accessor: Accessor, index: usize, out: []f32) bool {
         assert(out.len == accessor.type.numComponents());
         const result = cgltf_accessor_read_float(&accessor, index, out.ptr, out.len);
